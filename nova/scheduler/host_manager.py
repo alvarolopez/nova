@@ -127,6 +127,9 @@ class HostState(object):
         # Resource oversubscription values for the compute host:
         self.limits = {}
 
+        # SHA1 of the image ids available on-host
+        self.available_images = []
+
         self.updated = None
 
     def update_capabilities(self, capabilities=None, service=None):
@@ -208,6 +211,9 @@ class HostState(object):
 
         # Track number of instances on host
         self.num_instances += 1
+
+        # FIXME(aloga): We need to consume here the image_id. Even if it is
+        # not yet there,it will be.
 
         # Track number of instances by project_id
         project_id = instance.get('project_id')

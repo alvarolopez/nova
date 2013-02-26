@@ -19,12 +19,14 @@ import copy
 import errno
 import eventlet
 import fixtures
+import hashlib
 import json
 import mox
 import os
 import re
 import shutil
 import tempfile
+import uuid
 
 from lxml import etree
 from oslo.config import cfg
@@ -3740,8 +3742,20 @@ class HostStateTestCase(test.TestCase):
                  '"topology": {"cores": "1", "threads": "1", "sockets": "1"}}')
     instance_caps = [("x86_64", "kvm", "hvm"), ("i686", "kvm", "hvm")]
 
+    available_images = [hashlib.sha1(str(uuid.uuid4())).hexdigest()]
+
+    class FakeImageCacheManager(object):
+        """Fake Image Cache manager."""
+
+        def get_available_images(self):
+            return HostStateTestCase.available_images
+
     class FakeConnection(object):
         """Fake connection object."""
+
+        def __init__(self):
+            self.image_cache_manager = \
+                    HostStateTestCase.FakeImageCacheManager()
 
         def get_vcpu_total(self):
             return 1
@@ -3779,6 +3793,21 @@ class HostStateTestCase(test.TestCase):
 
         def get_instance_capabilities(self):
             return HostStateTestCase.instance_caps
+
+    def test_get_host_status(self):
+        hs = libvirt_driver.HostState(self.FakeConnection())
+        new_images = [hashlib.sha1(str(uuid.uuid4())).hexdigest()]
+        hs.driver.image_cache_manager.available_images = new_images
+
+        stats = hs.get_host_stats(refresh=False)
+        self.assertEquals(stats['available_images'], self.available_images)
+        stats = hs.get_host_stats(refresh=True)
+        self.assertEquals(stats['available_images'], new_images)
+
+    def test_update_available_images(self):
+        hs = libvirt_driver.HostState(self.FakeConnection())
+        stats = hs._stats
+        self.assertEquals(stats['available_images'], self.available_images)
 
     def test_update_status(self):
         hs = libvirt_driver.HostState(self.FakeConnection())

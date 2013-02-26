@@ -3432,6 +3432,9 @@ class LibvirtDriver(driver.ComputeDriver):
     def manage_image_cache(self, context, all_instances):
         """Manage the local cache of images."""
         self.image_cache_manager.verify_base_images(context, all_instances)
+        #NOTE(aloga): We might have changed the available images, so
+        # we should report back.
+        self.host_state.update_available_images()
 
     def _cleanup_remote_migration(self, dest, inst_base, inst_base_resize):
         """Used only for cleanup in case migrate_disk_and_power_off fails."""
@@ -3710,6 +3713,7 @@ class HostState(object):
         self._stats = {}
         self.driver = driver
         self.update_status()
+        self.update_available_images()
 
     def get_host_stats(self, refresh=False):
         """Return the current state of the host.
@@ -3717,7 +3721,17 @@ class HostState(object):
         If 'refresh' is True, run update the stats first."""
         if refresh:
             self.update_status()
+            self.update_available_images()
         return self._stats
+
+    def update_available_images(self):
+        """Retrieve cached images from image cache driver."""
+        LOG.debug(_("Updating host image chache"))
+        data = {"available_images":
+                    self.driver.image_cache_manager.get_available_images()}
+        self._stats.update(data)
+
+        return data
 
     def update_status(self):
         """Retrieve status info from libvirt."""

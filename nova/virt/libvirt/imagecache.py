@@ -25,6 +25,7 @@ http://wiki.openstack.org/nova-image-cache-management.
 import hashlib
 import json
 import os
+import os.path
 import re
 import time
 
@@ -242,6 +243,7 @@ def write_stored_checksum(target):
 class ImageCacheManager(object):
     def __init__(self):
         self.lock_path = os.path.join(CONF.instances_path, 'locks')
+        self.base_dir = os.path.join(CONF.instances_path, CONF.base_dir_name)
         self._reset_state()
 
     def _reset_state(self):
@@ -257,15 +259,15 @@ class ImageCacheManager(object):
         self.removable_base_files = []
         self.unexplained_images = []
 
-    def _store_image(self, base_dir, ent, original=False):
+    def _store_image(self, ent, original=False):
         """Store a base image for later examination."""
-        entpath = os.path.join(base_dir, ent)
+        entpath = os.path.join(self.base_dir, ent)
         if os.path.isfile(entpath):
             self.unexplained_images.append(entpath)
             if original:
                 self.originals.append(entpath)
 
-    def _list_base_images(self, base_dir):
+    def _list_base_images(self):
         """Return a list of the images present in _base.
 
         Determine what images we have on disk. There will be other files in
@@ -276,14 +278,14 @@ class ImageCacheManager(object):
         variable with a list of images that we need to try and explain.
         """
         digest_size = hashlib.sha1().digestsize * 2
-        for ent in os.listdir(base_dir):
+        for ent in os.listdir(self.base_dir):
             if len(ent) == digest_size:
-                self._store_image(base_dir, ent, original=True)
+                self._store_image(ent, original=True)
 
             elif (len(ent) > digest_size + 2 and
                   ent[digest_size] == '_' and
-                  not is_valid_info_file(os.path.join(base_dir, ent))):
-                self._store_image(base_dir, ent, original=False)
+                  not is_valid_info_file(os.path.join(self.base_dir, ent))):
+                self._store_image(ent, original=False)
 
     def _list_running_instances(self, context, all_instances):
         """List running instances (on all compute nodes)."""
@@ -357,7 +359,7 @@ class ImageCacheManager(object):
 
         return inuse_images
 
-    def _find_base_file(self, base_dir, fingerprint):
+    def _find_base_file(self, fingerprint):
         """Find the base file matching this fingerprint.
 
         Yields the name of the base file, a boolean which is True if the image
@@ -368,12 +370,12 @@ class ImageCacheManager(object):
         If no base file is found, then nothing is yielded.
         """
         # The original file from glance
-        base_file = os.path.join(base_dir, fingerprint)
+        base_file = os.path.join(self.base_dir, fingerprint)
         if os.path.exists(base_file):
             yield base_file, False, False
 
         # An older naming style which can be removed sometime after Folsom
-        base_file = os.path.join(base_dir, fingerprint + '_sm')
+        base_file = os.path.join(self.base_dir, fingerprint + '_sm')
         if os.path.exists(base_file):
             yield base_file, True, False
 
@@ -553,6 +555,18 @@ class ImageCacheManager(object):
                     virtutils.chown(base_file, os.getuid())
                     os.utime(base_file, None)
 
+    def get_available_images(self):
+        """Return the list of available cached images.
+
+        This function will return a list containing the SHA1 hashes of the
+        cached images. It does not perform any further verification.
+        """
+
+        self._reset_state()
+        self._list_base_images()
+        available_images = self.unexplained_images
+        return [os.path.basename(i) for i in available_images]
+
     def verify_base_images(self, context, all_instances):
         """Verify that base images are in a reasonable state."""
 
@@ -567,14 +581,13 @@ class ImageCacheManager(object):
         # created, but may remain from previous versions.
         self._reset_state()
 
-        base_dir = os.path.join(CONF.instances_path, CONF.base_dir_name)
-        if not os.path.exists(base_dir):
+        if not os.path.exists(self.base_dir):
             LOG.debug(_('Skipping verification, no base directory at %s'),
-                      base_dir)
+                      self.base_dir)
             return
 
         LOG.debug(_('Verify base images'))
-        self._list_base_images(base_dir)
+        self._list_base_images()
         self._list_running_instances(context, all_instances)
 
         # Determine what images are on disk because they're in use
@@ -583,7 +596,7 @@ class ImageCacheManager(object):
             LOG.debug(_('Image id %(id)s yields fingerprint %(fingerprint)s'),
                       {'id': img,
                        'fingerprint': fingerprint})
-            for result in self._find_base_file(base_dir, fingerprint):
+            for result in self._find_base_file(fingerprint):
                 base_file, image_small, image_resized = result
                 self._handle_base_image(img, base_file)
 
@@ -614,6 +627,7 @@ class ImageCacheManager(object):
                      ' '.join(self.removable_base_files))
 
             if CONF.remove_unused_base_images:
+                removed = []
                 for base_file in self.removable_base_files:
                     self._remove_base_file(base_file)
 
