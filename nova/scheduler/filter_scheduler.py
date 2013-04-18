@@ -19,6 +19,7 @@ You can customize this scheduler by specifying your own Host Filters and
 Weighing Functions.
 """
 
+import hashlib
 import random
 
 from oslo.config import cfg
@@ -284,6 +285,10 @@ class FilterScheduler(driver.Scheduler):
         instance_properties = request_spec['instance_properties']
         instance_type = request_spec.get("instance_type", None)
 
+        # Get the SHA1 of the image's id
+        image_id = request_spec.get("image", {}).get("id", None)
+        image_sha = hashlib.sha1(image_id).hexdigest()
+
         # Get the group
         update_group_hosts = False
         scheduler_hints = filter_properties.get('scheduler_hints') or {}
@@ -309,7 +314,8 @@ class FilterScheduler(driver.Scheduler):
         filter_properties.update({'context': context,
                                   'request_spec': request_spec,
                                   'config_options': config_options,
-                                  'instance_type': instance_type})
+                                  'instance_type': instance_type,
+                                  'image_sha': image_sha,})
 
         self.populate_filter_properties(request_spec,
                                         filter_properties)
