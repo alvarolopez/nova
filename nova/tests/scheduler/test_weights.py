@@ -71,33 +71,46 @@ class RamWeigherTestCase(test.TestCase):
 
         # so, host4 should win:
         weighed_host = self._get_weighed_host(hostinfo_list)
-        self.assertEqual(weighed_host.weight, 8192)
+        self.assertEqual(weighed_host.weight, 1.0)
         self.assertEqual(weighed_host.obj.host, 'host4')
 
-    def test_ram_filter_multiplier1(self):
-        self.flags(ram_weight_multiplier=-1.0)
+    def test_inverse_weight(self):
         hostinfo_list = self._get_all_hosts()
+        self.flags(ram_weight_inverse=True)
 
-        # host1: free_ram_mb=-512
-        # host2: free_ram_mb=-1024
-        # host3: free_ram_mb=-3072
-        # host4: free_ram_mb=-8192
+        # host1: free_ram_mb=512
+        # host2: free_ram_mb=1024
+        # host3: free_ram_mb=3072
+        # host4: free_ram_mb=8192
 
         # so, host1 should win:
         weighed_host = self._get_weighed_host(hostinfo_list)
-        self.assertEqual(weighed_host.weight, -512)
+        self.assertEqual(weighed_host.weight, 1.0)
         self.assertEqual(weighed_host.obj.host, 'host1')
+
+    def test_ram_filter_multiplier1(self):
+        self.flags(ram_weight_multiplier=0.0)
+        hostinfo_list = self._get_all_hosts()
+
+        # host1: free_ram_mb=512
+        # host2: free_ram_mb=1024
+        # host3: free_ram_mb=3072
+        # host4: free_ram_mb=8192
+
+        # We do not know the host, all have same weight.
+        weighed_host = self._get_weighed_host(hostinfo_list)
+        self.assertEqual(weighed_host.weight, 0.0)
 
     def test_ram_filter_multiplier2(self):
         self.flags(ram_weight_multiplier=2.0)
         hostinfo_list = self._get_all_hosts()
 
-        # host1: free_ram_mb=512 * 2
-        # host2: free_ram_mb=1024 * 2
-        # host3: free_ram_mb=3072 * 2
-        # host4: free_ram_mb=8192 * 2
+        # host1: free_ram_mb=512
+        # host2: free_ram_mb=1024
+        # host3: free_ram_mb=3072
+        # host4: free_ram_mb=8192
 
         # so, host4 should win:
         weighed_host = self._get_weighed_host(hostinfo_list)
-        self.assertEqual(weighed_host.weight, 8192 * 2)
+        self.assertEqual(weighed_host.weight, 1.0 * 2)
         self.assertEqual(weighed_host.obj.host, 'host4')

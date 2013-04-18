@@ -20,6 +20,20 @@ Pluggable Weighing support
 from nova import loadables
 
 
+def normalize(weight_list, normalize_to=1.0):
+    """Normalize the values in a list.
+
+    Normalize the values between 0 and normalize_to (default 1.0). If all the
+    values are equal they are normalized to 0.
+    """
+    lmax = max(weight_list) * 1.0
+    lmin = min(weight_list) * 1.0
+    if lmax == lmin:
+        return [0] * len(weight_list)
+    range_ = lmax - lmin
+    return [normalize_to * (i - lmin) / range_ for i in weight_list]
+
+
 class WeighedObject(object):
     """Object with weight information."""
     def __init__(self, obj, weight):
@@ -48,9 +62,16 @@ class BaseWeigher(object):
         """Weigh multiple objects.  Override in a subclass if you need
         need access to all objects in order to manipulate weights.
         """
+        # Calculate the weights
+        weights = []
+        for obj in weighed_obj_list:
+            weights.append(self._weigh_object(obj.obj, weight_properties))
+
+        # normalize, multiply and sum up
+        weights = normalize(weights)
         for obj in weighed_obj_list:
             obj.weight += (self._weight_multiplier() *
-                           self._weigh_object(obj.obj, weight_properties))
+                           weights[weighed_obj_list.index(obj)])
 
 
 class BaseWeightHandler(loadables.BaseLoader):
