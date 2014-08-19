@@ -201,6 +201,9 @@ libvirt_opts = [
                default='$instances_path/snapshots',
                help='Location where libvirt driver will store snapshots '
                     'before uploading them to image service'),
+    cfg.StrOpt('xen_bootloader_path',
+                default='/usr/lib/xen/bin/pygrub',
+                help='Location where the Xen bootloader is kept'),
     cfg.StrOpt('xen_hvmloader_path',
                 default='/usr/lib/xen/boot/hvmloader',
                 help='Location where the Xen hvmloader is kept'),
@@ -3423,6 +3426,9 @@ class LibvirtDriver(driver.ComputeDriver):
                     if img_props.get('os_command_line'):
                         guest.os_cmdline = img_props.get('os_command_line')
             else:
+                # NOTE(aloga): Xen PVM without a kernel need a bootloader
+                if guest.os_type == vm_mode.XEN:
+                    guest.os_loader = CONF.libvirt.xen_bootloader_path
                 guest.os_boot_dev = blockinfo.get_boot_order(disk_info)
 
         if ((CONF.libvirt.virt_type != "lxc" and
