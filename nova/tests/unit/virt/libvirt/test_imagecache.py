@@ -125,7 +125,9 @@ class ImageCacheManagerTestCase(test.NoDBTestCase):
             info_fname = imagecache.get_info_filename(fname)
             self.assertTrue(os.path.exists(info_fname))
 
-    def test_list_base_images(self):
+    @mock.patch("nova.virt.libvirt.imagecache.ImageCacheManager.base_dir",
+                new_callable=mock.PropertyMock)
+    def test_list_base_images(self, mock_base_dir):
         listing = ['00000001',
                    'ephemeral_0_20_None',
                    '17d1b00b81642842e514494a78e804e9a511637c_5368709120.info',
@@ -143,10 +145,11 @@ class ImageCacheManagerTestCase(test.NoDBTestCase):
         self.stub_out('os.path.isfile', lambda x: True)
 
         base_dir = '/var/lib/nova/instances/_base'
+        mock_base_dir.return_value = base_dir
         self.flags(instances_path='/var/lib/nova/instances')
 
         image_cache_manager = imagecache.ImageCacheManager()
-        image_cache_manager._list_base_images(base_dir)
+        image_cache_manager._list_base_images()
 
         sanitized = []
         for ent in image_cache_manager.unexplained_images:
@@ -268,29 +271,37 @@ class ImageCacheManagerTestCase(test.NoDBTestCase):
         self.assertRaises(processutils.ProcessExecutionError,
                           image_cache_manager._list_backing_images)
 
-    def test_find_base_file_nothing(self):
+    @mock.patch("nova.virt.libvirt.imagecache.ImageCacheManager.base_dir",
+                new_callable=mock.PropertyMock)
+    def test_find_base_file_nothing(self, mock_base_dir):
         self.stub_out('os.path.exists', lambda x: False)
 
         base_dir = '/var/lib/nova/instances/_base'
+        mock_base_dir.return_value = base_dir
         fingerprint = '549867354867'
         image_cache_manager = imagecache.ImageCacheManager()
-        res = list(image_cache_manager._find_base_file(base_dir, fingerprint))
+        res = list(image_cache_manager._find_base_file(fingerprint))
 
         self.assertEqual(0, len(res))
 
-    def test_find_base_file_small(self):
+    @mock.patch("nova.virt.libvirt.imagecache.ImageCacheManager.base_dir",
+                new_callable=mock.PropertyMock)
+    def test_find_base_file_small(self, mock_base_dir):
         fingerprint = '968dd6cc49e01aaa044ed11c0cce733e0fa44a6a'
         self.stub_out('os.path.exists',
                        lambda x: x.endswith('%s_sm' % fingerprint))
 
         base_dir = '/var/lib/nova/instances/_base'
+        mock_base_dir.return_value = base_dir
         image_cache_manager = imagecache.ImageCacheManager()
-        res = list(image_cache_manager._find_base_file(base_dir, fingerprint))
+        res = list(image_cache_manager._find_base_file(fingerprint))
 
         base_file = os.path.join(base_dir, fingerprint + '_sm')
         self.assertEqual(res, [(base_file, True, False)])
 
-    def test_find_base_file_resized(self):
+    @mock.patch("nova.virt.libvirt.imagecache.ImageCacheManager.base_dir",
+                new_callable=mock.PropertyMock)
+    def test_find_base_file_resized(self, mock_base_dir):
         fingerprint = '968dd6cc49e01aaa044ed11c0cce733e0fa44a6a'
         listing = ['00000001',
                    'ephemeral_0_20_None',
@@ -303,14 +314,17 @@ class ImageCacheManagerTestCase(test.NoDBTestCase):
         self.stub_out('os.path.isfile', lambda x: True)
 
         base_dir = '/var/lib/nova/instances/_base'
+        mock_base_dir.return_value = base_dir
         image_cache_manager = imagecache.ImageCacheManager()
-        image_cache_manager._list_base_images(base_dir)
-        res = list(image_cache_manager._find_base_file(base_dir, fingerprint))
+        image_cache_manager._list_base_images()
+        res = list(image_cache_manager._find_base_file(fingerprint))
 
         base_file = os.path.join(base_dir, fingerprint + '_10737418240')
         self.assertEqual(res, [(base_file, False, True)])
 
-    def test_find_base_file_all(self):
+    @mock.patch("nova.virt.libvirt.imagecache.ImageCacheManager.base_dir",
+                new_callable=mock.PropertyMock)
+    def test_find_base_file_all(self, mock_base_dir):
         fingerprint = '968dd6cc49e01aaa044ed11c0cce733e0fa44a6a'
         listing = ['00000001',
                    'ephemeral_0_20_None',
@@ -323,9 +337,10 @@ class ImageCacheManagerTestCase(test.NoDBTestCase):
         self.stub_out('os.path.isfile', lambda x: True)
 
         base_dir = '/var/lib/nova/instances/_base'
+        mock_base_dir.return_value = base_dir
         image_cache_manager = imagecache.ImageCacheManager()
-        image_cache_manager._list_base_images(base_dir)
-        res = list(image_cache_manager._find_base_file(base_dir, fingerprint))
+        image_cache_manager._list_base_images()
+        res = list(image_cache_manager._find_base_file(fingerprint))
 
         base_file1 = os.path.join(base_dir, fingerprint)
         base_file2 = os.path.join(base_dir, fingerprint + '_sm')
@@ -854,13 +869,16 @@ class ImageCacheManagerTestCase(test.NoDBTestCase):
         expect_set = set(['swap_123', 'swap_456'])
         self.assertEqual(image_cache_manager.back_swap_images, expect_set)
 
+    @mock.patch("nova.virt.libvirt.imagecache.ImageCacheManager.base_dir",
+                new_callable=mock.PropertyMock)
+    @mock.patch.object(libvirt_utils, 'chown')
     @mock.patch.object(lockutils, 'external_lock')
     @mock.patch.object(libvirt_utils, 'update_mtime')
     @mock.patch('os.path.exists', return_value=True)
     @mock.patch('os.path.getmtime')
     @mock.patch('os.remove')
     def test_age_and_verify_swap_images(self, mock_remove, mock_getmtime,
-            mock_exist, mock_mtime, mock_lock):
+            mock_exist, mock_mtime, mock_lock, mock_chown, mock_base_dir):
         image_cache_manager = imagecache.ImageCacheManager()
         expected_remove = set()
         expected_exist = set(['swap_128', 'swap_256'])
@@ -875,8 +893,11 @@ class ImageCacheManagerTestCase(test.NoDBTestCase):
 
         mock_getmtime.side_effect = getmtime
 
+        base_dir = '/tmp_age_test'
+        mock_base_dir.return_value = base_dir
+
         def removefile(path):
-            if not path.startswith('/tmp_age_test'):
+            if not path.startswith(base_dir):
                 return os.remove(path)
 
             fn = os.path.split(path)[-1]
@@ -885,7 +906,7 @@ class ImageCacheManagerTestCase(test.NoDBTestCase):
 
         mock_remove.side_effect = removefile
 
-        image_cache_manager._age_and_verify_swap_images(None, '/tmp_age_test')
+        image_cache_manager._age_and_verify_swap_images(None)
         self.assertEqual(1, len(expected_exist))
         self.assertEqual(1, len(expected_remove))
         self.assertIn('swap_128', expected_exist)

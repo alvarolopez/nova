@@ -256,9 +256,9 @@ class ImageCacheManager(imagecache.ImageCacheManager):
         self.removable_base_files = []
         self.unexplained_images = []
 
-    def _store_image(self, base_dir, ent, original=False):
+    def _store_image(self, ent, original=False):
         """Store a base image for later examination."""
-        entpath = os.path.join(base_dir, ent)
+        entpath = os.path.join(self.base_dir, ent)
         if os.path.isfile(entpath):
             self.unexplained_images.append(entpath)
             if original:
@@ -272,7 +272,7 @@ class ImageCacheManager(imagecache.ImageCacheManager):
                 LOG.debug('Adding %s into backend swap images', ent)
                 self.back_swap_images.add(ent)
 
-    def _list_base_images(self, base_dir):
+    def _list_base_images(self):
         """Return a list of the images present in _base.
 
         Determine what images we have on disk. There will be other files in
@@ -281,14 +281,14 @@ class ImageCacheManager(imagecache.ImageCacheManager):
         """
 
         digest_size = hashlib.sha1().digestsize * 2
-        for ent in os.listdir(base_dir):
+        for ent in os.listdir(self.base_dir):
             if len(ent) == digest_size:
-                self._store_image(base_dir, ent, original=True)
+                self._store_image(ent, original=True)
 
             elif (len(ent) > digest_size + 2 and
                   ent[digest_size] == '_' and
-                  not is_valid_info_file(os.path.join(base_dir, ent))):
-                self._store_image(base_dir, ent, original=False)
+                  not is_valid_info_file(os.path.join(self.base_dir, ent))):
+                self._store_image(ent, original=False)
             else:
                 self._store_swap_image(ent)
 
@@ -338,7 +338,7 @@ class ImageCacheManager(imagecache.ImageCacheManager):
                             self.unexplained_images.remove(backing_path)
         return inuse_images
 
-    def _find_base_file(self, base_dir, fingerprint):
+    def _find_base_file(self, fingerprint):
         """Find the base file matching this fingerprint.
 
         Yields the name of the base file, a boolean which is True if the image
@@ -349,12 +349,12 @@ class ImageCacheManager(imagecache.ImageCacheManager):
         If no base file is found, then nothing is yielded.
         """
         # The original file from glance
-        base_file = os.path.join(base_dir, fingerprint)
+        base_file = os.path.join(self.base_dir, fingerprint)
         if os.path.exists(base_file):
             yield base_file, False, False
 
         # An older naming style which can be removed sometime after Folsom
-        base_file = os.path.join(base_dir, fingerprint + '_sm')
+        base_file = os.path.join(self.base_dir, fingerprint + '_sm')
         if os.path.exists(base_file):
             yield base_file, True, False
 
@@ -576,11 +576,11 @@ class ImageCacheManager(imagecache.ImageCacheManager):
                 if os.path.exists(base_file):
                     libvirt_utils.update_mtime(base_file)
 
-    def _age_and_verify_swap_images(self, context, base_dir):
+    def _age_and_verify_swap_images(self, context):
         LOG.debug('Verify swap images')
 
         for ent in self.back_swap_images:
-            base_file = os.path.join(base_dir, ent)
+            base_file = os.path.join(self.base_dir, ent)
             if ent in self.used_swap_images and os.path.exists(base_file):
                 libvirt_utils.update_mtime(base_file)
             elif self.remove_unused_base_images:
@@ -591,7 +591,7 @@ class ImageCacheManager(imagecache.ImageCacheManager):
             LOG.warn(_LW('%s swap image was used by instance'
                          ' but no back files existing!'), error_image)
 
-    def _age_and_verify_cached_images(self, context, all_instances, base_dir):
+    def _age_and_verify_cached_images(self, context, all_instances):
         LOG.debug('Verify base images')
         # Determine what images are on disk because they're in use
         for img in self.used_images:
@@ -599,7 +599,7 @@ class ImageCacheManager(imagecache.ImageCacheManager):
             LOG.debug('Image id %(id)s yields fingerprint %(fingerprint)s',
                       {'id': img,
                        'fingerprint': fingerprint})
-            for result in self._find_base_file(base_dir, fingerprint):
+            for result in self._find_base_file(fingerprint):
                 base_file, image_small, image_resized = result
                 self._handle_base_image(img, base_file)
 
@@ -636,7 +636,8 @@ class ImageCacheManager(imagecache.ImageCacheManager):
         # That's it
         LOG.debug('Verification complete')
 
-    def _get_base(self):
+    @property
+    def base_dir(self):
 
         # NOTE(mikal): The new scheme for base images is as follows -- an
         # image is streamed from the image service to _base (filename is the
@@ -657,13 +658,12 @@ class ImageCacheManager(imagecache.ImageCacheManager):
         return base_dir
 
     def update(self, context, all_instances):
-        base_dir = self._get_base()
-        if not base_dir:
+        if not self.base_dir:
             return
         # reset the local statistics
         self._reset_state()
         # read the cached images
-        self._list_base_images(base_dir)
+        self._list_base_images()
         # read running instances data
         running = self._list_running_instances(context, all_instances)
         self.used_images = running['used_images']
@@ -671,5 +671,5 @@ class ImageCacheManager(imagecache.ImageCacheManager):
         self.instance_names = running['instance_names']
         self.used_swap_images = running['used_swap_images']
         # perform the aging and image verification
-        self._age_and_verify_cached_images(context, all_instances, base_dir)
-        self._age_and_verify_swap_images(context, base_dir)
+        self._age_and_verify_cached_images(context, all_instances)
+        self._age_and_verify_swap_images(context)
