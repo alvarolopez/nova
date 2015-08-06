@@ -657,6 +657,17 @@ class ImageCacheManager(imagecache.ImageCacheManager):
             return
         return base_dir
 
+    def get_cached_images_sha1(self):
+        """Return the SHA1 of the cached images ID."""
+
+        if not self.base_dir:
+            return []
+        # reset the local statistics
+        self._reset_state()
+        # read the cached images
+        images = self._list_base_images()
+        return [os.path.basename(i) for i in images.get("originals")]
+
     def update(self, context, all_instances):
         if not self.base_dir:
             return

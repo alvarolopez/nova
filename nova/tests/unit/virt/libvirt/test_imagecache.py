@@ -926,6 +926,22 @@ class ImageCacheManagerTestCase(test.NoDBTestCase):
         mock_synchronized.assert_called_once_with(lock_file, external=True,
                                                   lock_path=lock_path)
 
+    @mock.patch('nova.virt.libvirt.imagecache.ImageCacheManager.'
+                '_list_base_images')
+    @mock.patch('nova.virt.libvirt.imagecache.ImageCacheManager.base_dir',
+                new_callable=mock.PropertyMock)
+    def test_get_cached_images(self, mock_base_dir, mock_list):
+        mock_base_dir.return_value = "/fake/path"
+        expected = ['e97222e91fc4241f49a7f520d1dcf446751129b3',
+                    '17d1b00b81642842e514494a78e804e9a511637c']
+
+        mock_list.return_value = {'unexplained_images': [],
+                                  'originals': expected}
+
+        image_cache_manager = imagecache.ImageCacheManager()
+        self.assertEqual(expected,
+                         image_cache_manager.get_cached_images_sha1())
+
 
 class VerifyChecksumTestCase(test.NoDBTestCase):
 
