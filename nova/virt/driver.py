@@ -155,6 +155,17 @@ class ComputeDriver(object):
         """
         pass
 
+    def get_cached_images_sha1(self):
+        """Return the list of SHA1 of the cached images IDs.
+
+        .. note::
+
+            Some drivers have an image cache manager, this method should return
+            a list of the SHA1s of the IDs of the cached images, if any.
+            Otherwise it should return an empty list.
+        """
+        raise NotImplementedError()
+
     def get_info(self, instance):
         """Get the current status of an instance, by name (not ID!)
 

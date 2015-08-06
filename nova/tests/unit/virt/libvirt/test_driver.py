@@ -13561,6 +13561,10 @@ class LibvirtDriverTestCase(test.NoDBTestCase):
                       'backing_file': '/base/swap_512'}]
         return jsonutils.dumps(disk_info)
 
+    def test_get_cached_images_sha1(self):
+        self.assertRaises(NotImplementedError,
+                          self.drvr.get_cached_images_sha1)
+
     def test_migrate_disk_and_power_off_exception(self):
         """Test for nova.virt.libvirt.libvirt_driver.LivirtConnection
         .migrate_disk_and_power_off.

@@ -108,6 +108,10 @@ class IronicDriverTestCase(test.NoDBTestCase):
         CONF.set_default('api_max_retries', default=1, group='ironic')
         CONF.set_default('api_retry_interval', default=0, group='ironic')
 
+    def test_get_cached_images_sha1(self):
+        self.assertRaises(NotImplementedError,
+                          self.driver.get_cached_images_sha1)
+
     def test_public_api_signatures(self):
         self.assertPublicAPISignatures(driver.ComputeDriver(None), self.driver)
 

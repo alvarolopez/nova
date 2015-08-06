@@ -68,6 +68,10 @@ class XenAPIDriverTestCase(stubs.XenAPITestBaseNoDB):
                 'pci_passthrough_devices': '',
                 'host_other-config': {'iscsi_iqn': 'someiqn'}}
 
+    def test_get_cached_images_sha1(self):
+        self.assertRaises(NotImplementedError,
+                          self._get_driver().get_cached_images_sha1)
+
     def test_available_resource(self):
         driver = self._get_driver()
         driver._session.product_version = (6, 8, 2)

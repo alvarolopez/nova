@@ -214,6 +214,10 @@ class VMwareAPIVMTestCase(test.NoDBTestCase):
         self.conn.init_host('fake_host')
         self.conn._session._create_session.assert_called_once_with()
 
+    def test_get_cached_images_sha1(self):
+        self.assertRaises(NotImplementedError,
+                          self.conn.get_cached_images_sha1)
+
     def test_init_host(self):
         try:
             self.conn.init_host("fake_host")

@@ -165,6 +165,10 @@ class HyperVDriverTestCase(test_base.HyperVBaseTestCase):
         self.driver._vmops.get_info.assert_called_once_with(
             mock.sentinel.instance)
 
+    def test_get_cached_images_sha1(self):
+        self.assertRaises(NotImplementedError,
+                          self.driver.get_cached_images_sha1)
+
     def test_attach_volume(self):
         mock_instance = fake_instance.fake_instance_obj(self.context)
         self.driver.attach_volume(
