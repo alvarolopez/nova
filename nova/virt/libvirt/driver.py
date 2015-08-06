@@ -6984,6 +6984,10 @@ class LibvirtDriver(driver.ComputeDriver):
         out, err = utils.execute('env', 'LANG=C', 'uptime')
         return out
 
+    def get_cached_images_sha1(self):
+        """Return the list of SHA1 of the cached images IDs."""
+        return self.image_cache_manager.get_cached_images_sha1()
+
     def manage_image_cache(self, context, all_instances):
         """Manage the local cache of images."""
         self.image_cache_manager.update(context, all_instances)
