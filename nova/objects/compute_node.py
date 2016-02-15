@@ -47,7 +47,8 @@ class ComputeNode(base.NovaPersistentObject, base.NovaObject,
     # Version 1.12: HVSpec version 1.1
     # Version 1.13: Changed service_id field to be nullable
     # Version 1.14: Added cpu_allocation_ratio and ram_allocation_ratio
-    VERSION = '1.14'
+    # Version 1.15: Added cached_images field
+    VERSION = '1.15'
 
     fields = {
         'id': fields.IntegerField(read_only=True),
@@ -86,11 +87,15 @@ class ComputeNode(base.NovaPersistentObject, base.NovaObject,
                                                nullable=True),
         'cpu_allocation_ratio': fields.FloatField(),
         'ram_allocation_ratio': fields.FloatField(),
+        'cached_images': fields.ListOfStringsField(nullable=True),
         }
 
     def obj_make_compatible(self, primitive, target_version):
         super(ComputeNode, self).obj_make_compatible(primitive, target_version)
         target_version = versionutils.convert_version_to_tuple(target_version)
+        if target_version < (1, 15):
+            if 'cached_images' in primitive:
+                del primitive['cached_images']
         if target_version < (1, 14):
             if 'ram_allocation_ratio' in primitive:
                 del primitive['ram_allocation_ratio']
@@ -155,6 +160,7 @@ class ComputeNode(base.NovaPersistentObject, base.NovaObject,
             'supported_hv_specs',
             'host',
             'pci_device_pools',
+            'cached_images',
             ])
         fields = set(compute.fields) - special_cases
         for key in fields:
@@ -186,6 +192,10 @@ class ComputeNode(base.NovaPersistentObject, base.NovaObject,
                         # It's not specified either on the controller
                         value = 1.5
             compute[key] = value
+
+        cached_images = db_compute['cached_images']
+        if cached_images:
+            compute['cached_images'] = jsonutils.loads(cached_images)
 
         stats = db_compute['stats']
         if stats:
@@ -242,6 +252,12 @@ class ComputeNode(base.NovaPersistentObject, base.NovaObject,
         return computes[0]
 
     @staticmethod
+    def _convert_cached_images_to_db_format(updates):
+        cached_images = updates.pop('cached_images', None)
+        if cached_images is not None:
+            updates['cached_images'] = jsonutils.dumps(cached_images)
+
+    @staticmethod
     def _convert_stats_to_db_format(updates):
         stats = updates.pop('stats', None)
         if stats is not None:
@@ -272,6 +288,7 @@ class ComputeNode(base.NovaPersistentObject, base.NovaObject,
             raise exception.ObjectActionError(action='create',
                                               reason='already created')
         updates = self.obj_get_changes()
+        self._convert_cached_images_to_db_format(updates)
         self._convert_stats_to_db_format(updates)
         self._convert_host_ip_to_db_format(updates)
         self._convert_supported_instances_to_db_format(updates)
@@ -286,6 +303,7 @@ class ComputeNode(base.NovaPersistentObject, base.NovaObject,
 
         updates = self.obj_get_changes()
         updates.pop('id', None)
+        self._convert_cached_images_to_db_format(updates)
         self._convert_stats_to_db_format(updates)
         self._convert_host_ip_to_db_format(updates)
         self._convert_supported_instances_to_db_format(updates)
@@ -307,7 +325,7 @@ class ComputeNode(base.NovaPersistentObject, base.NovaObject,
                 "vcpus_used", "memory_mb_used", "local_gb_used",
                 "numa_topology", "hypervisor_type",
                 "hypervisor_version", "hypervisor_hostname",
-                "disk_available_least", "host_ip"]
+                "disk_available_least", "host_ip", "cached_images"]
         for key in keys:
             if key in resources:
                 self[key] = resources[key]

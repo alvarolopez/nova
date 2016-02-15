@@ -177,6 +177,8 @@ class ComputeNode(BASE, NovaBase, models.SoftDeleteMixin):
     ram_allocation_ratio = Column(Float, nullable=True)
     cpu_allocation_ratio = Column(Float, nullable=True)
 
+    # cached images SHA1s
+    cached_images = Column(Text, nullable=True)
 
 class Certificate(BASE, NovaBase, models.SoftDeleteMixin):
     """Represents a x509 certificate."""

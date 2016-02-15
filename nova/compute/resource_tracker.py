@@ -431,6 +431,9 @@ class ResourceTracker(object):
         self.compute_node.ram_allocation_ratio = self.ram_allocation_ratio
         self.compute_node.cpu_allocation_ratio = self.cpu_allocation_ratio
 
+        if self.driver.capabilities.get("has_imagecache", False):
+            self.compute_node.cached_images = self.driver.get_cached_images_sha1()
+
         # now copy rest to compute_node
         self.compute_node.update_from_virt_driver(resources)
 
