@@ -392,6 +392,9 @@ The Filter Scheduler weighs hosts based on the config option
   host's workload. The default is to preferably choose light workload compute
   hosts. If the multiplier is positive, the weigher prefer choosing heavy
   workload compute hosts, the weighing has the opposite effect of the default.
+* |ImageCacheWeigher| This weigher will check if the host has the request's
+  image already cached in its disk. If so, it will put the higher weight (1)
+  to those hosts. If not, the given weight will be 0.
 
 * |ServerGroupSoftAffinityWeigher| The weigher can compute the weight based
   on the number of instances that run on the same server group. The largest
@@ -459,3 +462,5 @@ in :mod:`nova.tests.scheduler`.
 .. |ServerGroupSoftAffinityWeigher| replace:: :class:`ServerGroupSoftAffinityWeigher <nova.scheduler.weights.affinity.ServerGroupSoftAffinityWeigher>`
 .. |ServerGroupSoftAntiAffinityWeigher| replace:: :class:`ServerGroupSoftAntiAffinityWeigher <nova.scheduler.weights.affinity.ServerGroupSoftAntiAffinityWeigher>`
 .. |DiskWeigher| replace:: :class:`DiskWeigher <nova.scheduler.weights.disk.DiskWeigher>`
+.. |ImageCacheWeigher| replace:: :class:`ImageCacheWeigher <nova.scheduler.weights.image_cache.ImageCacheWeigher>`
+

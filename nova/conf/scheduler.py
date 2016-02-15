@@ -658,6 +658,11 @@ io_ops_weight_mult_opt = cfg.FloatOpt("io_ops_weight_multiplier",
         help="Multiplier used for weighing host io ops. Negative numbers mean "
              "a preference to choose light workload compute hosts.")
 
+cache_weight_opt = cfg.FloatOpt('cache_weight_multiplier',
+        default=1.0,
+        help='Multiplier used for weighing cached images. Negative numbers mean '
+             'a preference to chose hosts with the image not cached.')
+
 # These opts are registered as a separate OptGroup
 metrics_weight_opts = [
      cfg.FloatOpt("weight_multiplier",
@@ -734,6 +739,7 @@ default_opts = [host_subset_size_opt,
                ram_weight_mult_opt,
                disk_weight_mult_opt,
                io_ops_weight_mult_opt,
+               cache_weight_opt,
                scheduler_max_att_opt,
                soft_affinity_weight_opt,
                soft_anti_affinity_weight_opt,
